@@ -13,7 +13,7 @@
 <head>
     <title>Dashboard</title>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
 
     <!-- Font Awesome -->
     <link rel="stylesheet"
@@ -70,8 +70,12 @@
             <h3>History Files</h3>
 
             <ul>
-                <li>Script_A</li>
-                <li>Project_B</li>
+                <li>
+                    <a href="script.php">Script PKKBN</a>    
+                </li>
+                <li>
+                    <a href="project.php">Project PKKBN</a>
+                </li>
                 <li>Board_C</li>
             </ul>
 
