@@ -163,4 +163,57 @@ class ProjectController extends Controller
 
         return redirect()->back()->with('success', 'Waduh, belum ditemukan jam kosong yang pas dan tumpang tindih di antara anggota minggu ini. Silakan atur ulang jadwal!');
     }
+
+    // LOGIKA UNTUK DASHBOARD: Menampilkan semua proyek
+    public function dashboard()
+    {
+        // Ambil semua proyek yang ada di database beserta data pembuatnya (creator)
+        $projects = \App\Models\Project::with('creator')->latest()->get();
+        
+        return view('dashboard', compact('projects'));
+    }
+
+    // LOGIKA UNTUK MEMBUAT PROYEK BARU
+    public function createProject(Request $request)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+        ]);
+
+        \App\Models\Project::create([
+            'title' => $request->title,
+            'description' => $request->description,
+            'creator_id' => auth()->id(), // Otomatis mencatat ID user yang sedang login
+        ]);
+
+        return redirect('/dashboard')->with('success', 'Proyek film baru berhasil dibuat! Silakan buka proyek untuk mengelola.');
+    }
+
+    // LOGIKA HALAMAN 3: Menampilkan Detail Proyek & Lini Masa Progress
+    public function showProject($id)
+    {
+        // Ambil data proyek beserta progres, anggota, dan penciptanya
+        $project = \App\Models\Project::with(['progresses.user', 'members', 'creator'])->findOrFail($id);
+        
+        // Ambil semua daftar user di kampus untuk dropdown tambah anggota
+        $all_users = \App\Models\User::where('id', '!=', auth()->id())->get();
+
+        return view('project-detail', compact('project', 'all_users'));
+    }
+
+    // LOGIKA HALAMAN 4: Menampilkan Halaman Kalender & Form Jadwal
+    public function showSchedule($id)
+    {
+        $project = \App\Models\Project::findOrFail($id);
+        
+        // Ambil jadwal luang yang sudah diinput oleh kru di proyek ini
+        $schedules = \App\Models\AvailableSchedule::where('project_id', $id)
+            ->with('user')
+            ->orderBy('start_time')
+            ->get();
+
+        return view('project-schedule', compact('project', 'schedules'));
+    }
+
 }

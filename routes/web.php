@@ -2,49 +2,37 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProjectController;
-use App\Models\Project;
-use App\Models\User;
+use App\Http\Controllers\AuthController; // Controller baru untuk Login/Register
 
-// Menangani jika user mengakses halaman utama tanpa ujung
-Route::get('/', function () {
-    // Otomatis pindahkan user ke halaman proyek ID 1
-    return redirect('/project/1');
+// ==========================================
+// 1. JALUR AKSES SEBELUM LOGIN (GUEST)
+// ==========================================
+Route::middleware('guest')->group(function () {
+    Route::get('/', function () { return redirect('/login'); });
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::get('/register', [AuthController::class, 'showRegister']);
+    Route::post('/register', [AuthController::class, 'register']);
 });
 
-// Halaman utama untuk melihat detail proyek FilmInOne secara langsung
-Route::get('/project/{id}', function ($id) {
-    
-    // PAKSA LOGIN (Hapus/Komentari fungsi IF-nya)
-    // Jika mau jadi Andi, ketik 1. Jika mau jadi Budi, ketik 2.
-    auth()->loginUsingId(1  ); 
+// ==========================================
+// 2. JALUR AKSES SETELAH LOGIN (AUTH)
+// ==========================================
+Route::middleware('auth')->group(function () {
+    // Keluar Aplikasi
+    Route::post('/logout', [AuthController::class, 'logout']);
 
-    $project = Project::with(['members', 'progresses'])->findOrFail($id);
-    $all_users = User::all();
+    // Halaman 2: Dashboard Utama (Daftar Proyek)
+    Route::get('/dashboard', [ProjectController::class, 'dashboard']);
+    Route::post('/project/create', [ProjectController::class, 'createProject']);
 
-    return view('project-detail', compact('project', 'all_users'));
-});
+    // Halaman 3: Timeline Progress Proyek (Detail)
+    Route::get('/project/{id}', [ProjectController::class, 'showProject']);
+    Route::post('/project/{id}/upload-progress', [ProjectController::class, 'uploadProgress']);
+    Route::post('/project/{id}/add-member', [ProjectController::class, 'addMember']);
 
-// Route untuk memproses form tambah anggota
-Route::post('/project/{id}/add-member', [ProjectController::class, 'addMember']);
-
-// Route untuk memproses form upload progress proyek / berkas editing
-Route::post('/project/{id}/upload-progress', [ProjectController::class, 'uploadProgress']);
-
-// Jalur untuk memproses simpan jadwal luang
-Route::post('/project/{id}/add-schedule', [ProjectController::class, 'addSchedule']);
-
-// Jalur untuk menghitung kecocokan jadwal syuting
-Route::get('/project/{id}/match-schedule', [ProjectController::class, 'matchSchedule']);
-
-Route::get('/test-notif', function() {
-    $user = \App\Models\User::find(1); // Andi
-    $progress = \App\Models\ProjectProgress::first(); // Ambil progress apa saja yang ada
-    
-    if(!$progress) {
-        return "Gagal tes: Anda harus upload minimal 1 file dulu di aplikasi agar ada data progress.";
-    }
-
-    $user->notify(new \App\Notifications\ProgressUploadedNotification($progress));
-    
-    return "Notifikasi berhasil ditembak langsung ke database Andi! Silakan cek halaman project.";
+    // Halaman 4: Schedule (Manajemen Jadwal Luang)
+    Route::get('/project/{id}/schedule', [ProjectController::class, 'showSchedule']);
+    Route::post('/project/{id}/add-schedule', [ProjectController::class, 'addSchedule']);
+    Route::get('/project/{id}/match-schedule', [ProjectController::class, 'matchSchedule']);
 });
