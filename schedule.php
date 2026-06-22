@@ -1,3 +1,22 @@
+<?php
+session_start();
+if (!isset($_SESSION['id'])) {
+    header("Location: login.php");
+    exit;
+}
+
+require_once 'connection/db.php';
+
+// Ambil semua jadwal yang berkaitan dengan project-project milik user
+$user_id = $_SESSION['id'];
+$query_sched = "SELECT s.*, p.project_name FROM schedules s
+                JOIN projects p ON s.project_id = p.id
+                JOIN project_members pm ON p.id = pm.project_id
+                WHERE pm.user_id = '$user_id'
+                ORDER BY s.start_time ASC";
+$result_sched = mysqli_query($conn, $query_sched);
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

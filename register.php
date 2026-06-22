@@ -51,7 +51,7 @@
 <div class="container">
     <h2>Register</h2>
 
-    <form action="process_register.php" method="POST">
+    <form action="proses/process_register.php" method="POST">
 
         <input
             type="text"

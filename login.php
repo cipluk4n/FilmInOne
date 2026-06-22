@@ -56,7 +56,7 @@
 <div class="container">
     <h2>Login</h2>
 
-    <form action="process_login.php" method="POST">
+    <form action="proses/process_login.php" method="POST">
 
         <input
             type="text"

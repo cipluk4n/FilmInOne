@@ -1,11 +1,22 @@
 <?php
-// session_start();
+session_start();
 
-// cek login
-// if (!isset($_SESSION['id'])) {
-//     header("Location: login.php");
-//     exit;
-// }
+// Cek apakah user sudah login
+if (!isset($_SESSION['id'])) {
+    header("Location: login.php");
+    exit;
+}
+
+// Hubungkan ke database (naik 1 folder lalu masuk ke connection)
+require_once 'connection/db.php';
+
+$user_id = $_SESSION['id'];
+
+// Ambil daftar project/team tempat user ini bergabung
+$query_project = "SELECT p.* FROM projects p 
+                  JOIN project_members pm ON p.id = pm.project_id 
+                  WHERE pm.user_id = '$user_id'";
+$result_project = mysqli_query($conn, $query_project);
 ?>
 
 <!DOCTYPE html>
@@ -140,7 +151,7 @@
             <span id="closeModal">&times;</span>
         </div>
 
-        <form action="create_team.php" method="POST">
+        <form action="proses/create_team.php" method="POST">
 
             <label>Team Name</label>
 
