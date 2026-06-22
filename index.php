@@ -151,7 +151,7 @@ $result_project = mysqli_query($conn, $query_project);
             <span id="closeModal">&times;</span>
         </div>
 
-        <form action="proses/create_team.php" method="POST">
+        <form action="create_team.php" method="POST">
 
             <label>Team Name</label>
 
