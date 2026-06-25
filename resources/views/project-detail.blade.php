@@ -19,14 +19,23 @@
 <div class="card card-cinema border-warning border-opacity-50 p-3 mb-4 shadow-sm bg-warning bg-opacity-10">
     <h6 class="fw-bold text-warning mb-2">🔔 Pemberitahuan Tim (Revisi Terbaru):</h6>
     <ul class="list-group list-group-flush small">
-        @forelse(auth()->user()->unreadNotifications as $notification)
-            <li class="list-group-item bg-transparent text-white-50 px-0 py-1 d-flex justify-content-between align-items-center border-0">
-                <span>⚠️ {{ $notification->data['message'] }}</span>
-                <span class="badge bg-secondary small">{{ $notification->data['time'] }}</span>
-            </li>
-        @empty
-            <li class="list-group-item bg-transparent text-muted px-0 py-1 border-0">Belum ada pemberitahuan atau revisi baru dari tim.</li>
-        @endforelse
+        <div class="card card-cinema border-secondary">
+            <div class="card-header fw-bold text-white small">Pemberitahuan Tim</div>
+            <div class="card-body p-0" style="max-height: 280px; overflow-y: auto;">
+                <ul class="list-group list-group-flush small">
+                    {{-- Loop Notifikasi Anda Di Sini --}}
+                    {{-- Contoh: @foreach(auth()->user()->notifications->take(5) atau semua dengan scroll --}}
+                @forelse(auth()->user()->unreadNotifications as $notification)
+                    <li class="list-group-item bg-transparent text-white-50 px-0 py-1 d-flex justify-content-between align-items-center border-0">
+                        <span>⚠️ {{ $notification->data['message'] }}</span>
+                        <span class="badge bg-secondary small">{{ $notification->data['time'] }}</span>
+                    </li>
+                @empty
+                    <li class="px-3 py-1 border-0 text-white-70 small">Belum ada pemberitahuan atau revisi baru dari tim.</li>
+                @endforelse
+                        </ul>
+            </div>
+        </div>
     </ul>
 </div>
 
@@ -68,7 +77,7 @@
                     <div class="card card-cinema p-3 shadow-sm rounded-3">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <h6 class="fw-bold text-gold m-0">📁 {{ $progress->title }}</h6>
-                            <span class="badge bg-dark border border-secondary text-muted small">{{ $progress->created_at->format('d M Y H:i') }}</span>
+                            <span class="badge bg-light border border-secondary text-muted small">{{ $progress->created_at->format('d M Y H:i') }}</span>
                         </div>
                         <p class="text-white-50 small mb-2">{{ $progress->description ?? 'Tidak ada catatan tambahan.' }}</p>
                         
@@ -88,30 +97,57 @@
 
     <div class="col-md-4">
         @if($project->creator_id == auth()->id())
-        <div class="card card-cinema p-3 mb-3 rounded-3 shadow-sm border-secondary">
-            <h6 class="fw-bold text-gold mb-2">➕ Undang Sineas/Anggota Tim</h6>
-            <form action="{{ url('/project/' . $project->id . '/add-member') }}" method="POST">
-                @csrf
-                <div class="mb-2">
-                    <select name="user_id" class="form-select form-select-sm bg-dark border-secondary text-white" required>
-                        <option value="">-- Pilih Mahasiswa --</option>
-                        @foreach($all_users as $user)
-                            <option value="{{ $user->id }}">{{ $user->name }} ({{ $user->email }})</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="mb-2">
-                    {{-- role hardcode --}}
-                    <select name="role" class="form-select form-select-sm bg-dark border-secondary text-white" required>
-                        <option value="Editor Video">Editor Video</option>
-                        <option value="Kameramen">Kameramen</option>
-                        <option value="Scriptwriter">Scriptwriter</option>
-                        <option value="Sound Designer">Sound Designer</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-outline-warning btn-sm w-100 fw-bold">💾 Masukkan ke Tim</button>
-            </form>
+        <div class="card card-cinema border-secondary mb-4">
+            <div class="card-header bg-transparent border-secondary py-3">
+                <h5 class="fw-bold text-gold m-0"><i class="bi bi-person-plus-fill"></i> Undang Sineas / Tim Baru</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url('/project/' . $project->id . '/add-member') }}" method="POST">
+                    @csrf
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-white-70 small fw-bold">Email Mahasiswa / Kru:</label>
+                        <input type="email" name="email" class="form-control bg-dark border-secondary text-white" placeholder="Masukkan email mahasiswa yang terdaftar..." required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-white-70 small fw-bold">Role / Jabatan Kru:</label>
+                        <select id="role_select" class="form-select bg-dark border-secondary text-white mb-2" onchange="toggleCustomRole(this)">
+                            <option value="Sutradara">🎬 Sutradara</option>
+                            <option value="Editor Video">🖥️ Editor Video</option>
+                            <option value="Kameramen A">🎥 Kameramen A</option>
+                            <option value="Kameramen B">🎥 Kameramen B</option>
+                            <option value="Talent / Aktor">🎭 Talent / Aktor</option>
+                            <option value="CUSTOM">✍️ Ketik Role Sendiri...</option>
+                        </select>
+                        
+                        <input type="text" id="role_custom" name="role" class="form-control bg-dark border-secondary text-white d-none" placeholder="Misal: Sound Engineer, Script Supervisor...">
+                    </div>
+
+                    <button type="submit" class="btn btn-gold btn-sm w-100 fw-bold py-2 shadow">🚀 Undang Bergabung</button>
+                </form>
+            </div>
         </div>
+
+        <script>
+        function toggleCustomRole(selectEl) {
+            var customInput = document.getElementById('role_custom');
+            if (selectEl.value === 'CUSTOM') {
+                // Tampilkan input teks jika pilih ketik sendiri
+                customInput.classList.remove('d-none');
+                customInput.required = true;
+                customInput.value = '';
+                customInput.focus();
+            } else {
+                // Sembunyikan dan isi nilainya dari dropdown langsung
+                customInput.classList.add('d-none');
+                customInput.required = false;
+                customInput.value = selectEl.value;
+            }
+        }
+        // Set inisialisasi awal saat halaman pertama dimuat browser
+        document.getElementById('role_custom').value = document.getElementById('role_select').value;
+        </script>
         @endif
 
         <div class="card card-cinema p-3 rounded-3 shadow-sm border-secondary">
@@ -128,6 +164,24 @@
                     </li>
                 @endforeach
             </ul>
+        </div>
+        <div>
+            <br></br>
+            @if($project->creator_id == auth()->id() && strtolower($project->status) !== 'selesai')
+                <div class="card card-cinema border-success mb-4 animate__animated animate__fadeIn">
+                    <div class="card-body text-center py-4">
+                        <h5 class="fw-bold text-success mb-2">🎬 Produksi Film Selesai?</h5>
+                        <p class="text-white-70 small mb-3">Jika seluruh proses syuting dan editing tim sinema Anda sudah rampung, silakan kunci dan selesaikan proyek ini.</p>
+                        
+                        <form action="{{ url('/project/' . $project->id . '/complete') }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menyelesaikan proyek film ini? Status tidak bisa dikembalikan.');">
+                            @csrf
+                            <button type="submit" class="btn btn-success btn-sm fw-bold px-4 shadow">
+                                ✔ Tandai Proyek Selesai
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 </div>

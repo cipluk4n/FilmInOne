@@ -4,32 +4,44 @@ namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
 
 class ProgressUploadedNotification extends Notification
 {
     use Queueable;
 
-    protected $progress;
+    protected $details;
 
-    // Menerima data progress yang baru diupload
-    public function __construct($progress)
+    // 1. Pastikan Constructor menerima variabel $details
+    public function __construct($details)
     {
-        $this->progress = $progress;
+        $this->details = $details;
     }
 
-    // Memberitahu Laravel untuk menyimpan notifikasi ini ke Database (MySQL)
-    public function via($notifiable): array
+    // 2. PASTIKAN DI SINI ADA 'mail' DAN 'database'
+    public function via($notifiable)
     {
-        return ['database'];
+        return ['database', 'mail'];
     }
 
-    // Mengatur isi pesan notifikasi yang akan disimpan
-    public function toArray($notifiable): array
+    // 3. PASTIKAN JALUR EMAILNYA SUDAH DIRAKIT SEPERTI INI
+    public function toMail($notifiable)
+    {
+        return (new MailMessage)
+                    ->subject('🎬 Undangan Bergabung Proyek FilmInOne')
+                    ->greeting('Halo, ' . $notifiable->name . '!')
+                    ->line($this->details['message'])
+                    ->action('Buka Ruang Kerja', url('/project/' . $this->details['project_id']))
+                    ->line('Selamat berkarya di platform FilmInOne!');
+    }
+
+    // 4. Ini untuk notifikasi internal di dalam website (Abaikan/Biarkan tetap ada)
+    public function toArray($notifiable)
     {
         return [
-            'project_id' => $this->progress->project_id,
-            'message' => 'Ada revisi/progress baru: "' . $this->progress->title . '" yang diunggah oleh ' . auth()->user()->name,
-            'time' => now()->format('H:i')
+            'message' => $this->details['message'],
+            'project_id' => $this->details['project_id']
         ];
     }
 }

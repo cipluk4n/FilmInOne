@@ -23,7 +23,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Halaman 2: Dashboard Utama (Daftar Proyek)
-    Route::get('/dashboard', [ProjectController::class, 'dashboard']);
+    Route::get('/dashboard', [ProjectController::class, 'dashboard'])->name('dashboard');
     Route::post('/project/create', [ProjectController::class, 'createProject']);
 
     // Halaman 3: Timeline Progress Proyek (Detail)
@@ -35,4 +35,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/project/{id}/schedule', [ProjectController::class, 'showSchedule']);
     Route::post('/project/{id}/add-schedule', [ProjectController::class, 'addSchedule']);
     Route::get('/project/{id}/match-schedule', [ProjectController::class, 'matchSchedule']);
+
+    // menerima data kiriman form Call Sheet dari Ketua proyek
+    Route::post('/project/{id}/add-shooting-schedule', [ProjectController::class, 'addShootingSchedule']);
+
+    //  Benar   
+    Route::delete('/project/{id}', ['App\Http\Controllers\ProjectController', 'destroy'])->middleware('auth');
+
+    // Rute untuk menyelesaikan proyek
+    Route::post('/project/{id}/complete', [ProjectController::class, 'completeProject'])->middleware('auth');
 });

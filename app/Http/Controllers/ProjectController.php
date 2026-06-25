@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\ProjectProgress;
+use App\Notifications\ProgressUploadedNotification;
 use Illuminate\Support\Facades\Storage;
 
 class ProjectController extends Controller
@@ -15,10 +16,12 @@ class ProjectController extends Controller
     {
         // Validasi input dari form website
         $request->validate([
-            'title' => 'required|string|max:255',
+            'title' => 'required|string|max:255|unique:projects,title',
             'description' => 'nullable|string',
             'script' => 'nullable|file|mimes:pdf,docx|max:10000', // max 10MB
             'storyboard' => 'nullable|file|mimes:pdf,jpg,png,jpeg|max:20000', // max 20MB
+        ], [
+            'title.unique' => 'Gagal membuat proyek! Judul film tersebut sudah digunakan oleh proyek lain. Silakan cari judul yang berbeda. 🎬'
         ]);
 
         // Proses simpan file Naskah & Storyboard ke dalam folder storage aplikasi
@@ -45,23 +48,73 @@ class ProjectController extends Controller
         return redirect()->back()->with('success', 'Proyek FilmInOne Berhasil Dibuat!');
     }
 
-    // LOGIKA 2: Menambahkan Anggota ke Proyek (Oleh Ketua)
-    public function addMember(Request $request, $projectId)
+    public function destroy($id)
     {
+        // 1. Cari proyeknya, jika tidak ada langsung memicu error 404
+        $project = \App\Models\Project::findOrFail($id);
+
+        // 2. Keamanan tambahan: Pastikan hanya pembuat proyek (Produser) yang bisa menghapus
+        if ($project->creator_id !== auth()->id()) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki hak akses untuk menghapus proyek ini!');
+        }
+
+        // 3. ERROR HANDLING STATUS: Cek apakah status proyek sudah selesai
+        // Catatan: Sesuaikan kata 'Selesai' di bawah dengan string status yang Anda simpan di database Anda (misal: 'Completed' atau 'Finished')
+        if (strtolower($project->status) !== 'selesai' && strtolower($project->status) !== 'completed') {
+            return redirect()->back()->with('error', 'Gagal Menghapus! Proyek film ini masih berjalan. Anda hanya bisa menghapus proyek yang statusnya sudah "Selesai". ⚠️');
+        }
+
+        // 4. Jika lolos pengecekan di atas, proyek baru boleh dihapus
+        $project->delete();
+
+        return redirect()->route('dashboard')->with('success', 'Proyek film lama berhasil dihapus dari sistem! 🗑️');
+}
+
+    // LOGIKA 2: Menambahkan Anggota ke Proyek (Oleh Ketua)
+    public function addMember(Request $request, $id)
+    {
+        $project = \App\Models\Project::findOrFail($id);
+
+        // 1. Validasi input email harus terdaftar di tabel users
         $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'role' => 'required|string', // misal: Editor, Kameramen, Talent
+            'email' => 'required|email|exists:users,email',
+            'role' => 'required|string|max:50',
         ]);
 
-        ProjectMember::create([
-            'project_id' => $projectId,
-            'user_id' => $request->user_id,
-            'role' => $request->role,
-            'permissions' => ['upload_progress', 'view_schedule'] // Hak akses standar anggota
-        ]);
+        // 2. Cari data user berdasarkan email
+        $user = \App\Models\User::where('email', $request->email)->first();
 
-        return redirect()->back()->with('success', 'Anggota tim berhasil ditambahkan!');
-    }
+        // 3. DETEKSI RELEVANSI: Cek apakah dia adalah pembuat proyek
+        if ($project->creator_id == $user->id) {
+            return redirect()->back()->with('error', 'Gagal: Email ini adalah milik Produser/Pembuat proyek ini sendiri! 👑');
+        }
+
+        // 4. DETEKSI RELEVANSI: Cek apakah dia sudah jadi anggota
+        if ($project->members->contains($user->id)) {
+            return redirect()->back()->with('error', 'Gagal: Mahasiswa ini sudah bergabung di dalam tim proyek ini! 👥');
+        }
+
+        // 5. Tambahkan ke pivot table jika lolos cek di atas
+        $project->members()->attach($user->id, ['role' => $request->role]);
+
+        // 6. Jalankan pemicu notifikasi & email
+        $details = [
+            'message' => 'Anda telah diundang oleh ' . auth()->user()->name . ' untuk bergabung sebagai ' . $request->role . ' di proyek film "' . $project->title . '".',
+            'project_id' => $project->id
+        ];
+        
+        try {
+        // Kita paksa kirim email langsung tanpa perantara antrean
+        $user->notify(new \App\Notifications\ProgressUploadedNotification($details));
+        } catch (\Exception $e) {
+            // JIKA GOOGLE MENOLAK SAMBUNGAN, KODE INI AKAN MEMAKSA WEB ANDA MENAMPILKAN PESAN ERRORNYA DI LAYAR
+            return redirect()->back()->with('error', 'Kru berhasil join, TAPI EMAIL GAGAL. Alasan: ' . $e->getMessage());
+        }
+
+        return redirect()->back()->with('success', 'Anggota baru berhasil diundang & Email resmi telah dikirim! 🚀');
+
+        return redirect()->back()->with('success', 'Anggota baru berhasil diundang & Email resmi telah dikirim! 🚀');
+}
 
     // LOGIKA 3: Mengunggah Berkas Progress Proyek / Timeline Editing (Oleh Semua Anggota)
     public function uploadProgress(Request $request, $id)
@@ -180,10 +233,13 @@ class ProjectController extends Controller
     // LOGIKA UNTUK DASHBOARD: Menampilkan semua proyek
     public function dashboard()
     {
-        // Ambil semua proyek yang ada di database beserta data pembuatnya (creator)
-        $projects = \App\Models\Project::with('creator')->latest()->get();
-        
-        return view('dashboard', compact('projects'));
+        // Mengambil proyek yang dibuat sendiri ATAU proyek yang dia ikuti sebagai anggota
+        $my_projects = \App\Models\Project::where('creator_id', auth()->id())
+            ->orWhereHas('members', function($query) {
+                $query->where('users.id', auth()->id());
+            })->latest()->get();
+
+        return view('dashboard', compact('my_projects'));
     }
 
     // LOGIKA UNTUK MEMBUAT PROYEK BARU
@@ -203,13 +259,38 @@ class ProjectController extends Controller
         return redirect('/dashboard')->with('success', 'Proyek film baru berhasil dibuat! Silakan buka proyek untuk mengelola.');
     }
 
-    // LOGIKA HALAMAN 3: Menampilkan Detail Proyek & Lini Masa Progress
+    public function completeProject($id)
+    {
+        $project = \App\Models\Project::findOrFail($id);
+
+        // Keamanan: Pastikan hanya pembuat proyek yang bisa menyelesaikan
+        if ($project->creator_id !== auth()->id()) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki hak akses untuk mengubah status proyek ini.');
+        }
+
+        // Ubah status menjadi Selesai
+        $project->status = 'Selesai';
+        $project->save();
+
+        return redirect()->route('dashboard')->with('success', 'Selamat! Proyek film "' . $project->title . '" telah dinyatakan SELESAI! 🎬🎉');
+    }
+
+    // LOGIKA HALAMAN 3: Menampilkan Detail Proyek & Lini Masa Progress (Aman dari Penyusup)
     public function showProject($id)
     {
-        // Ambil data proyek beserta progres, anggota, dan penciptanya
+        // 1. Ambil data proyek beserta progres, anggota, dan penciptanya
         $project = \App\Models\Project::with(['progresses.user', 'members', 'creator'])->findOrFail($id);
         
-        // Ambil semua daftar user di kampus untuk dropdown tambah anggota
+        // 2. KEAMANAN CRITICAL: Cek apakah user yang login adalah Pembuat ATAU Anggota Resmi
+        $isCreator = $project->creator_id === auth()->id();
+        $isMember = $project->members->contains(auth()->id());
+
+        if (!$isCreator && !$isMember) {
+            // Jika akun lain mencoba menerobos via URL, usir ke dashboard
+            return redirect('/dashboard')->with('error', 'Akses ditolak! Anda bukan anggota resmi dari proyek film ini. 🚫');
+        }
+
+        // 3. Jika lolos pengecekan, ambil daftar user lain untuk dropdown tambah anggota
         $all_users = \App\Models\User::where('id', '!=', auth()->id())->get();
 
         return view('project-detail', compact('project', 'all_users'));
@@ -218,15 +299,55 @@ class ProjectController extends Controller
     // LOGIKA HALAMAN 4: Menampilkan Halaman Kalender & Form Jadwal
     public function showSchedule($id)
     {
-        $project = \App\Models\Project::findOrFail($id);
+        $project = \App\Models\Project::with(['members', 'creator'])->findOrFail($id);
         
-        // Ambil jadwal luang yang sudah diinput oleh kru di proyek ini
-        $schedules = \App\Models\AvailableSchedule::where('project_id', $id)
-            ->with('user')
-            ->orderBy('start_time')
-            ->get();
+        // KEAMANAN: Usir jika bukan ketua dan bukan anggota
+        if ($project->creator_id !== auth()->id() && !$project->members->contains(auth()->id())) {
+            return redirect('/dashboard')->with('error', 'Akses jadwal ditolak! Anda bukan bagian dari tim ini. 🚫');
+        }
 
-        return view('project-schedule', compact('project', 'schedules'));
+        $schedules = \App\Models\AvailableSchedule::where('project_id', $id)->with('user')->get();
+        $shooting_schedules = \App\Models\ShootingSchedule::where('project_id', $id)->get();
+
+        $workload = [];
+        foreach ($project->members as $member) {
+            $count = \App\Models\ShootingSchedule::where('project_id', $id)
+                ->whereJsonContains('assigned_users', $member->id)
+                ->count();
+            $workload[$member->id] = $count;
+        }
+        $workload[$project->creator_id] = \App\Models\ShootingSchedule::where('project_id', $id)
+            ->whereJsonContains('assigned_users', $project->creator_id)
+            ->count();
+
+        return view('project-schedule', compact('project', 'schedules', 'shooting_schedules', 'workload'));
     }
 
+    // Menyimpan Jadwal Panggilan Syuting Resmi (Call Sheet) oleh Ketua
+    public function addShootingSchedule(Request $request, $id)
+    {
+        $project = \App\Models\Project::findOrFail($id);
+
+        // Keamanan: Pastikan hanya Ketua Proyek yang bisa mengunci jadwal syuting
+        if ($project->creator_id != auth()->id()) {
+            return redirect()->back()->with('error', 'Hanya Produser/Ketua yang dapat membuat jadwal syuting.');
+        }
+
+        $request->validate([
+            'title' => 'required|string',
+            'start_time' => 'required',
+            'end_time' => 'required',
+            'assigned_users' => 'required|array'
+        ]);
+
+        \App\Models\ShootingSchedule::create([
+            'project_id' => $id,
+            'title' => $request->title,
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
+            'assigned_users' => $request->assigned_users
+        ]);
+
+        return redirect()->back()->with('success', 'Jadwal Panggilan Syuting berhasil diterbitkan & dikunci! 🎬');
+    }
 }
