@@ -101,6 +101,7 @@
                     </select>
                 </div>
                 <div class="mb-2">
+                    {{-- role hardcode --}}
                     <select name="role" class="form-select form-select-sm bg-dark border-secondary text-white" required>
                         <option value="Editor Video">Editor Video</option>
                         <option value="Kameramen">Kameramen</option>

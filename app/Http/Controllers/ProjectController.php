@@ -64,36 +64,49 @@ class ProjectController extends Controller
     }
 
     // LOGIKA 3: Mengunggah Berkas Progress Proyek / Timeline Editing (Oleh Semua Anggota)
-    public function uploadProgress(Request $request, $projectId)
+    public function uploadProgress(Request $request, $id)
     {
+        $project = \App\Models\Project::findOrFail($id);
+        
         $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'progress_file' => 'required|file|mimes:pdf,docx,xml,png,jpg,jpeg,wav,zip|max:50000',
+            'title' => 'required|string',
+            'progress_file' => 'required|file|max:20480', // Max 20MB
         ]);
 
-        $filePath = $request->file('progress_file')->store('progress_files', 'public');
-        $fileType = $request->file('progress_file')->getClientOriginalExtension();
+        $file = $request->file('progress_file');
+        $path = $file->store('progress_files', 'public');
 
+        // PERBAIKAN DI SINI: Ganti Progress menjadi ProjectProgress
         $progress = \App\Models\ProjectProgress::create([
-            'project_id' => $projectId,
+            'project_id' => $project->id,
             'user_id' => auth()->id(),
             'title' => $request->title,
             'description' => $request->description,
-            'file_path' => $filePath,
-            'file_type' => $fileType,
+            'file_path' => $path,
+            'file_type' => $file->getClientOriginalExtension(),
         ]);
 
-        // KITA PAKAI CARA PALING STANDAR & AMAN DARI LARAVEL
+        // Logika notifikasi di bawahnya tetap sama...
         if ($request->has('send_notification')) {
-            $allUsers = \App\Models\User::where('id', '!=', auth()->id())->get();
+            $recipients = [$project->creator_id];
+            $memberIds = $project->members()->pluck('users.id')->toArray();
+            $recipients = array_merge($recipients, $memberIds);
+            $recipients = array_diff(array_unique($recipients), [auth()->id()]);
+
+            $usersToNotify = \App\Models\User::whereIn('id', $recipients)->get();
             
-            foreach ($allUsers as $user) {
+            $details = [
+                'message' => auth()->user()->name . " mengunggah progress baru '" . $request->title . "' di proyek '" . $project->title . "'.",
+                'time' => now()->diffForHumans(),
+                'project_id' => $project->id
+            ];
+
+            foreach ($usersToNotify as $user) {
                 $user->notify(new \App\Notifications\ProgressUploadedNotification($progress));
             }
         }
 
-        return redirect()->back()->with('success', 'Progress berhasil diunggah!');
+        return redirect('/project/' . $id)->with('success', 'Progress berhasil diunggah!');
     }
     
     // LOGIKA 4: Menyimpan Jadwal Luang Anggota
