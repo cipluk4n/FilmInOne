@@ -7,11 +7,40 @@ use App\Models\Project;
 use App\Models\ProjectMember;
 use App\Models\ProjectProgress;
 use App\Notifications\ProgressUploadedNotification;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\RevisionUrgentMail;
 use Illuminate\Support\Facades\Storage;
 
 class ProjectController extends Controller
 {
-    // LOGIKA 1: Membuat Proyek Baru (Oleh Ketua)
+    public function index()
+    {
+        $userId = auth()->id();
+
+        // 1. Ambil semua proyek yang ada di database
+        $projects = \App\Models\Project::all();
+
+        // 2. 🌟 PERBAIKAN: Ambil proyek yang dibuatnya sendiri ATAU yang dia terlibat sebagai anggota
+        $my_projects = \App\Models\Project::where('creator_id', $userId)
+            ->orWhereHas('members', function($query) use ($userId) {
+                $query->where('user_id', $userId);
+            })
+            ->get();
+
+        // 3. Kirim kembali ke view
+        return view('dashboard', compact('projects', 'my_projects'));
+
+        // // 1. Ambil SEMUA proyek yang ada di database (untuk bagian @foreach($projects))
+        // $projects = \App\Models\Project::all();
+
+        // // 2. Ambil proyek yang di mana user saat ini merupakan pembuat atau anggotanya (untuk bagian $my_projects)
+        // // Karena tadi Anda memilih Cara 2 (user_id di projects boleh kosong), kita cari berdasarkan 'creator_id'
+        // $my_projects = \App\Models\Project::where('creator_id', auth()->id())->get();
+
+        // // 3. Kirim KEDUA variabel ini sekaligus ke view dashboard
+        // return view('dashboard', compact('projects', 'my_projects'));
+    }
+        // LOGIKA 1: Membuat Proyek Baru (Oleh Ketua)
     public function storeProject(Request $request)
     {
         // Validasi input dari form website
@@ -21,7 +50,7 @@ class ProjectController extends Controller
             'script' => 'nullable|file|mimes:pdf,docx|max:10000', // max 10MB
             'storyboard' => 'nullable|file|mimes:pdf,jpg,png,jpeg|max:20000', // max 20MB
         ], [
-            'title.unique' => 'Gagal membuat proyek! Judul film tersebut sudah digunakan oleh proyek lain. Silakan cari judul yang berbeda. 🎬'
+            'title.unique' => 'Gagal membuat proyek! Judul film tersebut sudah digunakan oleh proyek lain. Silakan cari judul yang berbeda.'
         ]);
 
         // Proses simpan file Naskah & Storyboard ke dalam folder storage aplikasi
@@ -45,7 +74,8 @@ class ProjectController extends Controller
             'permissions' => ['all'] // Punya semua hak akses
         ]);
 
-        return redirect()->back()->with('success', 'Proyek FilmInOne Berhasil Dibuat!');
+        // return redirect()->back()->with('success', 'Proyek FilmInOne Berhasil Dibuat!');
+        return redirect()->route('dashboard')->with('success', 'Proyek film berhasil dibuat!');
     }
 
     public function destroy($id)
@@ -105,15 +135,18 @@ class ProjectController extends Controller
         
         try {
         // Kita paksa kirim email langsung tanpa perantara antrean
-        $user->notify(new \App\Notifications\ProgressUploadedNotification($details));
+        // $user->notify(new \App\Notifications\ProgressUploadedNotification($details));
+        $user->notify(new ProgressUploadedNotification([
+            'message' => $request->progress_title, // 🌟 Kirim judul progresnya di sini!
+            'project_id' => $project->id,
+            'time' => date('H:i')
+        ]));
         } catch (\Exception $e) {
             // JIKA GOOGLE MENOLAK SAMBUNGAN, KODE INI AKAN MEMAKSA WEB ANDA MENAMPILKAN PESAN ERRORNYA DI LAYAR
             return redirect()->back()->with('error', 'Kru berhasil join, TAPI EMAIL GAGAL. Alasan: ' . $e->getMessage());
         }
 
-        return redirect()->back()->with('success', 'Anggota baru berhasil diundang & Email resmi telah dikirim! 🚀');
-
-        return redirect()->back()->with('success', 'Anggota baru berhasil diundang & Email resmi telah dikirim! 🚀');
+        return redirect()->back()->with('success', 'Anggota baru berhasil diundang & Email telah dikirim!');
 }
 
     // LOGIKA 3: Mengunggah Berkas Progress Proyek / Timeline Editing (Oleh Semua Anggota)
@@ -159,7 +192,30 @@ class ProjectController extends Controller
             }
         }
 
-        return redirect('/project/' . $id)->with('success', 'Progress berhasil diunggah!');
+        // 2. 🌟 PROSES PENGIRIMAN EMAIL DARURAT
+        if ($request->has('notify_email') && $request->notify_email == '1') {
+            
+            // Ambil semua user_id anggota yang tergabung di proyek ini (kecuali yang sedang login/pengunggah)
+            $memberIds = ProjectMember::where('project_id', $project->id)
+                                    ->where('user_id', '!=', auth()->id())
+                                    ->pluck('user_id');
+
+            // Ambil data user beserta emailnya berdasarkan ID tersebut
+            $members = \App\Models\User::whereIn('id', $memberIds)->get();
+
+            // Lakukan perulangan kirim email ke setiap anggota
+            foreach ($members as $member) {
+                if ($member->email) {
+                    // Mail::to($member->email)->queue(new RevisionUrgentMail($project, $request->progress_detail));
+                    // Mail::to($member->email)->send(new RevisionUrgentMail($project, $request->progress_detail));
+                    // Pastikan kodenya seperti ini (menggunakan queue)
+                    Mail::to($member->email)->queue(new RevisionUrgentMail($project, $request->progress_detail));
+                }
+            }
+        }
+
+        return redirect()->back()->with('success', 'Progress berhasil diunggah' . ($request->notify_email ? ' dan email darurat telah dikirim!' : '!'));
+        // return redirect('/project/' . $id)->with('success', 'Progress berhasil diunggah!');
     }
     
     // LOGIKA 4: Menyimpan Jadwal Luang Anggota
@@ -272,7 +328,7 @@ class ProjectController extends Controller
         $project->status = 'Selesai';
         $project->save();
 
-        return redirect()->route('dashboard')->with('success', 'Selamat! Proyek film "' . $project->title . '" telah dinyatakan SELESAI! 🎬🎉');
+        return redirect()->route('dashboard')->with('success', 'Selamat! Proyek film "' . $project->title . '" telah SELESAI!');
     }
 
     // LOGIKA HALAMAN 3: Menampilkan Detail Proyek & Lini Masa Progress (Aman dari Penyusup)
@@ -348,6 +404,6 @@ class ProjectController extends Controller
             'assigned_users' => $request->assigned_users
         ]);
 
-        return redirect()->back()->with('success', 'Jadwal Panggilan Syuting berhasil diterbitkan & dikunci! 🎬');
+        return redirect()->back()->with('success', 'Jadwal Panggilan Syuting berhasil diterbitkan & dikunci!');
     }
 }

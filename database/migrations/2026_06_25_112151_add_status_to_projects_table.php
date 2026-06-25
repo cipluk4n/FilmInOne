@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('projects', function (Blueprint $table) {
             // Kita tambahkan kolom status, dengan nilai bawaan (default) 'Planning'
-            $table->string('status')->default('Planning')->after('title'); 
+            $table->string('status')->default('On Production')->after('title'); 
         });
     }
 

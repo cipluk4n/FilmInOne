@@ -3,13 +3,13 @@
 @section('content')
 <div class="row mb-4 align-items-center">
     <div class="col-md-8">
-        <span class="badge bg-warning text-dark fw-bold mb-2">🎬 Project Workspace</span>
+        <span class="badge bg-warning text-dark fw-bold mb-2">Project Workspace</span>
         <h2 class="fw-bold text-white m-0">{{ $project->title }}</h2>
-        <p class="text-muted small m-0">{{ $project->description }}</p>
+        <p class="text-white-60 small m-0">{{ $project->description }}</p>
     </div>
     <div class="col-md-4 text-md-end mt-3 mt-md-0">
         <a href="{{ url('/project/' . $project->id . '/schedule') }}" class="btn btn-gold shadow">
-            📅 Manajemen Jadwal & Kalender Luang →
+            Jadwal →
         </a>
     </div>
 </div>
@@ -20,20 +20,40 @@
     <h6 class="fw-bold text-warning mb-2">🔔 Pemberitahuan Tim (Revisi Terbaru):</h6>
     <ul class="list-group list-group-flush small">
         <div class="card card-cinema border-secondary">
-            <div class="card-header fw-bold text-white small">Pemberitahuan Tim</div>
+            {{-- <div class="card-header fw-bold text-white small">Pemberitahuan Tim</div> --}}
             <div class="card-body p-0" style="max-height: 280px; overflow-y: auto;">
                 <ul class="list-group list-group-flush small">
-                    {{-- Loop Notifikasi Anda Di Sini --}}
-                    {{-- Contoh: @foreach(auth()->user()->notifications->take(5) atau semua dengan scroll --}}
-                @forelse(auth()->user()->unreadNotifications as $notification)
+                
+                @forelse(auth()->user()->notifications->take(5) as $index => $notification)
                     <li class="list-group-item bg-transparent text-white-50 px-0 py-1 d-flex justify-content-between align-items-center border-0">
-                        <span>⚠️ {{ $notification->data['message'] }}</span>
-                        <span class="badge bg-secondary small">{{ $notification->data['time'] }}</span>
+                        
+                        <span class="text-truncate" style="max-width: 70%;">
+                            Progres: 
+                            <strong class="text-white">
+                                @php
+                                    // Mengambil data progres yang sesuai dengan urutan notifikasi saat ini
+                                    $allProgress = \App\Models\ProjectProgress::where('project_id', $notification->data['project_id'])
+                                                    ->latest()
+                                                    ->get();
+                                    
+                                    // Mengambil progres sesuai index perulangan agar tidak menampilkan data yang sama terus-menerus
+                                    $currentProgress = $allProgress[$index] ?? $allProgress->first();
+                                @endphp
+                                
+                                {{ $currentProgress->title ?? $currentProgress->name ?? 'Progres Baru' }}
+                            </strong>
+                        </span>
+                        
+                        <span class="badge bg-secondary small ms-2">
+                            {{ $notification->data['time'] ?? $notification->created_at->diffForHumans() }}
+                        </span>
+
                     </li>
                 @empty
-                    <li class="px-3 py-1 border-0 text-white-70 small">Belum ada pemberitahuan atau revisi baru dari tim.</li>
+                    <li class="px-3 py-1 border-0 text-white-60 small">Belum ada pemberitahuan atau revisi baru dari tim.</li>
                 @endforelse
-                        </ul>
+                
+                </ul>
             </div>
         </div>
     </ul>
@@ -42,7 +62,7 @@
 <div class="row">
     <div class="col-md-8">
         <div class="card card-cinema p-3 mb-4 rounded-3 shadow-sm">
-            <h5 class="fw-bold text-gold mb-3">🚀 Unggah Progress / Berkas Editing</h5>
+            <h5 class="fw-bold text-gold mb-3">Unggah Progress / Berkas Editing</h5>
             <form action="{{ url('/project/' . $project->id . '/upload-progress') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="mb-3">
@@ -56,19 +76,32 @@
                         <input type="file" name="progress_file" class="form-control form-control-sm bg-dark border-secondary text-white" required>
                     </div>
                     <div class="col-md-5">
-                        <button type="submit" class="btn btn-gold btn-sm w-100 fw-bold">Upload & Kabari Tim 🚀</button>
+                        <button type="submit" class="btn btn-gold btn-sm w-100 fw-bold">Upload & Kabari Tim</button>
                     </div>
                 </div>
-                <div class="form-check mt-2">
+                {{-- <div class="form-check mt-2">
                     <input class="form-check-input" type="checkbox" name="send_notification" id="sendNotif" value="1" checked>
                     <label class="form-check-label text-danger small fw-bold" for="sendNotif">
-                        🔔 Centang untuk kirim notifikasi/reminder revisi otomatis ke anggota tim
+                        Centang untuk kirim notifikasi/reminder revisi otomatis ke anggota tim
+                    </label>
+                </div> --}}
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="notify_app" id="notify_app" value="1" checked>
+                    <label class="form-check-label text-white small" for="notify_app">
+                        Beritahu semua anggota dalam tim melalui aplikasi
+                    </label>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" name="notify_email" id="notify_email" value="1">
+                    <label class="form-check-label text-warning small fw-bold" for="notify_email">
+                        Kirim pemberitahuan ke Email Langsung
                     </label>
                 </div>
             </form>
         </div>
 
-        <h5 class="fw-bold text-white mb-3">📌 Lini Masa Progress Proyek</h5>
+        <h5 class="fw-bold text-white mb-3">Timeline Progress</h5>
         <div class="position-relative ps-3 border-start border-secondary">
             @forelse($project->progresses->sortByDesc('created_at') as $progress)
                 <div class="mb-4 position-relative">
@@ -99,32 +132,31 @@
         @if($project->creator_id == auth()->id())
         <div class="card card-cinema border-secondary mb-4">
             <div class="card-header bg-transparent border-secondary py-3">
-                <h5 class="fw-bold text-gold m-0"><i class="bi bi-person-plus-fill"></i> Undang Sineas / Tim Baru</h5>
+                <h5 class="fw-bold text-gold m-0"><i class="bi bi-person-plus-fill"></i> Undang  Anggota Tim</h5>
             </div>
             <div class="card-body">
                 <form action="{{ url('/project/' . $project->id . '/add-member') }}" method="POST">
                     @csrf
                     
                     <div class="mb-3">
-                        <label class="form-label text-white-70 small fw-bold">Email Mahasiswa / Kru:</label>
+                        <label class="form-label text-white-70 small fw-bold">Email:</label>
                         <input type="email" name="email" class="form-control bg-dark border-secondary text-white" placeholder="Masukkan email mahasiswa yang terdaftar..." required>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label text-white-70 small fw-bold">Role / Jabatan Kru:</label>
                         <select id="role_select" class="form-select bg-dark border-secondary text-white mb-2" onchange="toggleCustomRole(this)">
-                            <option value="Sutradara">🎬 Sutradara</option>
-                            <option value="Editor Video">🖥️ Editor Video</option>
-                            <option value="Kameramen A">🎥 Kameramen A</option>
-                            <option value="Kameramen B">🎥 Kameramen B</option>
-                            <option value="Talent / Aktor">🎭 Talent / Aktor</option>
-                            <option value="CUSTOM">✍️ Ketik Role Sendiri...</option>
+                            <option value="Sutradara">Sutradara</option>
+                            <option value="Editor Video">Editor Video</option>
+                            <option value="Kameramen A">Kameramen</option>
+                            <option value="Talent / Aktor">Aktor/Aktris</option>
+                            <option value="CUSTOM">Lainnya</option>
                         </select>
                         
                         <input type="text" id="role_custom" name="role" class="form-control bg-dark border-secondary text-white d-none" placeholder="Misal: Sound Engineer, Script Supervisor...">
                     </div>
 
-                    <button type="submit" class="btn btn-gold btn-sm w-100 fw-bold py-2 shadow">🚀 Undang Bergabung</button>
+                    <button type="submit" class="btn btn-gold btn-sm w-100 fw-bold py-2 shadow">Undang Bergabung</button>
                 </form>
             </div>
         </div>
@@ -151,11 +183,11 @@
         @endif
 
         <div class="card card-cinema p-3 rounded-3 shadow-sm border-secondary">
-            <h6 class="fw-bold text-white mb-3">🎬 Daftar Kru Produksi:</h6>
+            <h6 class="fw-bold text-white mb-3">Daftar Kru Produksi:</h6>
             <ul class="list-group list-group-flush small">
                 <li class="list-group-item bg-transparent text-white px-0 d-flex justify-content-between align-items-center border-secondary">
                     <span>👑 {{ $project->creator->name }}</span>
-                    <span class="badge bg-gold text-dark fw-bold">Produser / Ketua</span>
+                    <span class="badge bg-gold text-light fw-bold">Pemilik/Ketua</span>
                 </li>
                 @foreach($project->members as $member)
                     <li class="list-group-item bg-transparent text-white-50 px-0 d-flex justify-content-between align-items-center border-secondary">
@@ -170,7 +202,7 @@
             @if($project->creator_id == auth()->id() && strtolower($project->status) !== 'selesai')
                 <div class="card card-cinema border-success mb-4 animate__animated animate__fadeIn">
                     <div class="card-body text-center py-4">
-                        <h5 class="fw-bold text-success mb-2">🎬 Produksi Film Selesai?</h5>
+                        <h5 class="fw-bold text-success mb-2">Proyek Selesai?</h5>
                         <p class="text-white-70 small mb-3">Jika seluruh proses syuting dan editing tim sinema Anda sudah rampung, silakan kunci dan selesaikan proyek ini.</p>
                         
                         <form action="{{ url('/project/' . $project->id . '/complete') }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menyelesaikan proyek film ini? Status tidak bisa dikembalikan.');">

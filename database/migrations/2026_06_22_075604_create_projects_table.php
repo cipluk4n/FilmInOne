@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::create('projects', function (Blueprint $table) {
             $table->id(); // Membuat kolom ID otomatis
+            // $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('user_id')->nullable()->constrained()->onDelete('cascade');
             $table->string('title'); // Kolom Judul Proyek Film
             $table->text('description')->nullable(); // Deskripsi proyek (boleh kosong)
             $table->string('script_path')->nullable(); // Tempat menyimpan file naskah

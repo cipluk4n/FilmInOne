@@ -23,7 +23,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // Halaman 2: Dashboard Utama (Daftar Proyek)
-    Route::get('/dashboard', [ProjectController::class, 'dashboard'])->name('dashboard');
+    // Route::get('/dashboard', [ProjectController::class, 'dashboard'])->name('dashboard');
+    Route::get('/dashboard', [ProjectController::class, 'index'])->middleware(['auth'])->name('dashboard');
     Route::post('/project/create', [ProjectController::class, 'createProject']);
 
     // Halaman 3: Timeline Progress Proyek (Detail)

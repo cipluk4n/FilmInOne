@@ -20,13 +20,13 @@
     @auth
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark-cinema border-bottom border-secondary mb-4 shadow">
         <div class="container">
-            <a class="navbar-brand fw-bold text-gold" href="{{ url('/dashboard') }}">🎬 FilmInOne</a>
+            <a class="navbar-brand fw-bold text-gold" href="{{ url('/dashboard') }}">FilmInOne</a>
             <button class="navbar-dark navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto align-items-center">
-                    <li class="nav-item me-3 text-muted small">🍿 Sineas: <strong class="text-white">{{ auth()->user()->name }}</strong></li>
+                    <li class="nav-item me-3 text-muted small"><strong class="text-white">{{ auth()->user()->name }}</strong></li>
                     <li class="nav-item">
                         <form action="{{ url('/logout') }}" method="POST" class="d-inline">
                             @csrf

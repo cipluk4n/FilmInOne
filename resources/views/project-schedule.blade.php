@@ -7,9 +7,9 @@
 
 <div class="row mb-4 align-items-center">
     <div class="col-md-8">
-        <span class="badge bg-warning text-dark fw-bold mb-2">📅 Kalender Kolaboratif Sineas</span>
+        <span class="badge bg-warning text-dark fw-bold mb-2">Kalender Kolaboratif</span>
         <h2 class="fw-bold text-white m-0">Sinkronisasi Jadwal Proyek</h2>
-        <p class="text-muted small m-0">Film: <strong class="text-white">{{ $project->title }}</strong></p>
+        <p class="text-white-60 small m-0">Proyek: <strong class="text-white">{{ $project->title }}</strong></p>
     </div>
     <div class="col-md-4 text-md-end mt-3 mt-md-0">
         <a href="{{ url('/project/' . $project->id) }}" class="btn btn-outline-light btn-sm fw-bold">← Ruang Kerja</a>
@@ -22,7 +22,7 @@
     <div class="col-md-8 mb-4">
         <div class="card card-cinema p-3 rounded-3 border-secondary shadow shadow-lg">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <span class="text-muted small"><i class="bi bi-info-circle text-info"></i> Klik tanggal untuk melihat kru luang / plot jadwal syuting resmi.</span>
+                <span class="text-white-60 small"><i class="bi bi-info-circle text-info"></i> Klik tanggal untuk membuat/melihat plot jadwal.</span>
             </div>
             <div id="calendar" style="max-height: 600px; color: white;"></div>
         </div>
@@ -30,7 +30,7 @@
 
     <div class="col-md-4">
         <div class="card card-cinema p-3 rounded-3 border-secondary mb-3">
-            <h6 class="fw-bold text-gold mb-2"><i class="bi bi-person-plus"></i> Set Waktu Luang Anda Minggu Ini:</h6>
+            <h6 class="fw-bold text-gold mb-2"><i class="bi bi-person-plus"></i> Set Waktu Anda:</h6>
             <form action="{{ url('project/' . $project->id . '/add-schedule') }}" method="POST" class="row g-2">
                 @csrf
                 <div class="col-6">
@@ -40,7 +40,7 @@
                     <input type="datetime-local" name="end_time" class="form-control form-control-sm bg-dark border-secondary text-white" required>
                 </div>
                 <div class="col-12">
-                    <button type="submit" class="btn btn-outline-warning btn-xs w-100 fw-bold btn-sm py-1">💾 Simpan Jam Kosong Saya</button>
+                    <button type="submit" class="btn btn-outline-warning btn-xs w-100 fw-bold btn-sm py-1">Simpan Waktu Saya</button>
                 </div>
             </form>
         </div>
@@ -86,13 +86,13 @@
                                 <div class="form-check small mb-1">
                                     <input class="form-check-input" type="checkbox" name="assigned_users[]" value="{{ $member->id }}" id="user-{{ $member->id }}">
                                     <label class="form-check-label text-white-50" for="user-{{ $member->id }}">
-                                        🎬 {{ $member->name }} ({{ $member->pivot->role }}) <span class="badge bg-secondary text-xs">{{ $workload[$member->id] }}x tugas</span>
+                                        {{ $member->name }} ({{ $member->pivot->role }}) <span class="badge bg-secondary text-xs">{{ $workload[$member->id] }}x tugas</span>
                                     </label>
                                 </div>
                                 @endforeach
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-gold btn-sm w-100 fw-bold shadow">Kunci & Kabari Tim 🚀</button>
+                        <button type="submit" class="btn btn-gold btn-sm w-100 fw-bold shadow">Kunci & Kabari Tim</button>
                     </form>
                 </div>
                 @endif
@@ -238,5 +238,9 @@
     .fc .fc-button-active { background-color: #ffcc00 !important; color: #000 !important; }
     .fc-event { cursor: pointer; padding: 2px 4px; font-weight: bold; }
     .text-xs { font-size: 0.7rem; }
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+        /* display: none; */
+        filter: invert(1); 
+    }
 </style>
 @endsection
